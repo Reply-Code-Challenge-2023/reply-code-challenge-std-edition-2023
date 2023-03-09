@@ -46,5 +46,6 @@ for bound in range(1, max_snake + 1):
 
     dps.append(dp)
 
+print(snakes)
 print(matrix)
 print(dps[0])
