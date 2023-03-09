@@ -3,6 +3,7 @@ columns = 0
 rows = 0
 num_snakes = 0
 matrix = []
+wormhole_coords = []
 
 with open("tests/00-example.txt") as topo_file:
     count = 0
@@ -19,13 +20,15 @@ with open("tests/00-example.txt") as topo_file:
             row = []
             for n in range(int(columns)):
                 row.append(variables[n])
+                if variables[n] == "*":
+                    wormhole_coords.append((count - 2, n))
             matrix.append(row)
 
         count += 1
 
 max_snake = max(snakes)
 dps = []
-for bound in range(1, len(max_snake) + 1):
+for bound in range(1, max_snake + 1):
     if bound == 1:
         dp = list(
             map(lambda x: list(map(lambda y: 0 if y == "*" else int(y), x)), matrix)
@@ -43,6 +46,5 @@ for bound in range(1, len(max_snake) + 1):
 
     dps.append(dp)
 
-print(snakes)
 print(matrix)
 print(dps[0])
