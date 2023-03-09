@@ -46,7 +46,7 @@ for bound in range(1, max_snake + 1):
                 adjacent_wormholes = []
                 possible_next = []
                 # for each adjacent cell, check if it's a wormhole
-                for cell in [((row-1)%rows, col), ((row+1)%rows, col), (row, (col-1)%cols), (row, (col+1)%cols)]:
+                for cell in [(col, (row-1)%rows), (col, (row+1)%rows), ((col-1)%cols, row), ((col+1)%cols, row)]:
                     if cell in wormholes:
                         adjacent_wormholes.append(cell)
                     else:
