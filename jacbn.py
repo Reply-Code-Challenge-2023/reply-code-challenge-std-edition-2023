@@ -51,14 +51,17 @@ for bound in range(1, max_snake + 1):
                 for cell in [(col, (row-1)%rows, 'U'), (col, (row+1)%rows, 'D'), ((col-1)%cols, row, 'L'), ((col+1)%cols, row, 'R')]:
                     if (cell[0], cell[1]) in wormholes:
                         adjacent_wormholes.append(cell)
-                    # we can always go up/down/left/right
-                    possible_next.append(cell)
+                    else:
+                        possible_next.append(cell)
                         
                 for adj in adjacent_wormholes:
                     for i, w in enumerate(wormholes):
                         possible_next.append((w[0], w[1], f"{adj[2]}{i}"))
+                        # print((w[0], w[1], f"{adj[2]}{i}", bound-2, dps[bound-2][w[1]][w[0]]), end=' ')
+                    # print()
+                    
                 # remove duplicates (can there actually be any??)
-                possible_next = list(set(possible_next))
+                # possible_next = list(set(possible_next))
                 prev = dps[bound - 2]
                 
                 choices = [(prev[y % rows][x % cols], direction) for x, y, direction in possible_next]
@@ -82,6 +85,7 @@ for bound in range(1, max_snake + 1):
                 
                 dp[row][col] = paths[best_choice_index] + (0 if matrix[row][col] == '*' else int(matrix[row][col]))
                 dp_path[row][col] = direction[best_choice_index]
+                # print(dp_path[4][5])
     dps.append(dp)
     dps_path.append(dp_path)
 
@@ -93,45 +97,78 @@ snakes = sorted(snakes, reverse=True)
 
 free_positions = [[1 for _ in range(cols)] for _ in range(rows)]
 
-for r in dps[-1]:
-    print(r)
+# for r in dps_path[-1]:
+#     print(r)
 
 dps = np.array(dps)
 
 
 MIN = np.iinfo(dps.dtype).min
+flipDirection = {
+    'U' : 'D',
+    'D' : 'U',
+    'L' : 'R',
+    'R' : 'L',
+}
 
 for snake_length in snakes:
     # we will grow the snake from the optimal square
     optimal_square = np.argmax(dps[snake_length - 1])
-    head = tail = (optimal_square // cols, optimal_square % cols)
+    head = tail = (optimal_square % cols, optimal_square // cols)
     dps[:, head[0], head[1]] = MIN + 48 - snake_length
+    visited = [head]
     for i in range(snake_length-1, 0, -1):
         # grow the snake
         growth_choices = {
-            1 : (((head[0] - 1) % rows, head[1]), 1), # head up
-            2 : (((head[0] + 1) % rows, head[1]), 2), # head down
-            3 : ((head[0], (head[1] - 1) % cols), 3), # head left
-            4 : ((head[0], (head[1] + 1) % cols), 4), # head right
-            5 : (((tail[0] - 1) % rows, tail[1]), 5), # tail up
-            6 : (((tail[0] + 1) % rows, tail[1]), 6), # tail down
-            7 : ((tail[0], (tail[1] - 1) % cols), 7), # tail left
-            8 : ((tail[0], (tail[1] + 1) % cols), 8), # tail right
+            1 : (((head[0] - 1) % rows, head[1]), 1, 'U'), # head up
+            2 : (((head[0] + 1) % rows, head[1]), 2, 'D'), # head down
+            3 : ((head[0], (head[1] - 1) % cols), 3, 'L'), # head left
+            4 : ((head[0], (head[1] + 1) % cols), 4, 'R'), # head right
+            5 : (((tail[0] - 1) % rows, tail[1]), 5, 'U'), # tail up
+            6 : (((tail[0] + 1) % rows, tail[1]), 6, 'D'), # tail down
+            7 : ((tail[0], (tail[1] - 1) % cols), 7, 'L'), # tail left
+            8 : ((tail[0], (tail[1] + 1) % cols), 8, 'R'), # tail right
         }
-        choice = max([(dps[i, c[0], c[1]], growth_index) for c, growth_index in growth_choices.values()], key=lambda x: x[0])
+        choice = max([(dps[i, c[0], c[1]], growth_index, direction) for c, growth_index, direction in growth_choices.values()], key=lambda x: x[0])
+        
+        
         if choice[1] <= 4:
             head = growth_choices[choice[1]][0]
-            dps[:, head[0], head[1]] = MIN + 48 - snake_length
+            dps[:, head[0], head[1]] = MIN + 48 - snake_length            
+            
+            visited.insert(1, flipDirection[choice[2]])
+            
+            # this needs to recalculate the growth_choices
+            st = dps_path[i][head[0]][head[1]]
+            if len(st) > 1:
+                print(f"updating head from {head} to {wormholes[int(st[1:])]}")
+                head = wormholes[int(st[1:])]
+                
+                visited.insert(1, head)
+                
         else:
             tail = growth_choices[choice[1]][0]
             dps[:, tail[0], tail[1]] = MIN + 48 - snake_length
+            
+            # everything in tail is backwards:
+            # - we flip any directions
+            # - we append wormholes first
+                        
+            st = dps_path[i][tail[0]][tail[1]]
+            if len(st) > 1:
+                print(f"updating tail from {tail} to {wormholes[int(st[1:])]}")
+                tail = wormholes[int(st[1:])]
+                visited.append(tail)
+                
+            visited.append(choice[2])
+        print(visited)
+    
+    print("-----------------")
+    print(f"visited: {visited}")
         
-
-
-# for l in dps_path[2]:
-    # print(l)
-
 np.set_printoptions(linewidth=100000)
+
+print("------------------")
 
 for r in dps[-1]:
     print(r)
