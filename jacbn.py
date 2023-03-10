@@ -5,50 +5,8 @@ num_snakes = 0
 matrix = []
 wormholes = []
 
-
-def checkForOverlap(possible_path_index, dps_path, row, col, rows, cols, paths, wormholes):
-    i = len(dps_path)
-    visited = []
-    r = row
-    c = col
-    valid = False
-    
-    print(possible_path_index, len(paths), len(direction))
-    print(paths[possible_path_index], direction[possible_path_index])
-    
-    while (c, r) not in visited:
-        if i > 1:
-            visited.append((c, r))
-            m = dps_path[i-1]
-            # print(r, c)
-            # print(len(m), len(m[0]))
-            direction = m[r][c]
-    
-            if len(direction[possible_path_index]) > 2:
-                index = int(direction[possible_path_index][1:-1])
-                c, r = wormholes[index]
-            else:
-                if direction[0][0] == 'U':
-                    c = (c - 1) % cols
-                elif direction[0][0] == 'D':
-                    c = (c + 1) % cols
-                elif direction[0][0] == 'L':
-                    r = (r - 1) % rows
-                elif direction[0][0] == 'R':
-                    r = (r + 1) % rows
-                else:
-                    raise Exception(f"Unknown direction: {direction[0]}")
-        i -= 1
-        if i <= 1:
-            valid = (c, r) not in visited
-            break
-        if valid:
-            break
-    
-    if valid == False:
-        raise Exception("no valid path for snake")
-
-with open("tests/00-example.txt") as topo_file:
+# with open("tests/00-example.txt") as topo_file:
+with open("tests/wormhole.txt") as topo_file:
     count = 0
     for line in topo_file:
         variables = line[:-1].split(" ")
@@ -70,7 +28,8 @@ with open("tests/00-example.txt") as topo_file:
         count += 1
 
 
-print(wormholes)
+print(f"wormholes: {wormholes}")
+print(f"snakes: {snakes}")
 
 max_snake = max(snakes)
 dps = []
@@ -89,7 +48,7 @@ for bound in range(1, max_snake + 1):
                 possible_next = []
                 
                 # for each adjacent cell, check if it's a wormhole
-                for cell in [(col, (row-1)%rows, 'U '), (col, (row+1)%rows, 'D '), ((col-1)%cols, row, 'L '), ((col+1)%cols, row, 'R ')]:
+                for cell in [(col, (row-1)%rows, 'U'), (col, (row+1)%rows, 'D'), ((col-1)%cols, row, 'L'), ((col+1)%cols, row, 'R')]:
                     if (cell[0], cell[1]) in wormholes:
                         adjacent_wormholes.append(cell)
                     # we can always go up/down/left/right
@@ -97,37 +56,82 @@ for bound in range(1, max_snake + 1):
                         
                 for adj in adjacent_wormholes:
                     for i, w in enumerate(wormholes):
-                        possible_next.append((w[0], w[1], f"{adj[2]}{i} "))
-                    
+                        possible_next.append((w[0], w[1], f"{adj[2]}{i}"))
                 # remove duplicates (can there actually be any??)
                 possible_next = list(set(possible_next))
                 prev = dps[bound - 2]
                 
                 choices = [(prev[y % rows][x % cols], direction) for x, y, direction in possible_next]
-                paths, direction = zip(*sorted(choices, key=lambda x: x[0]))
+                paths, direction = zip(*sorted(choices, key=lambda x: x[0], reverse=True))
                 
                 # paths[0] is optimal, but we can't always take the optimal path because it might overlap itself
                 
                 # check for overlaps:
+                # cancelled
                 
                 assert len(paths) == len(direction)
                 
-                for possible_path_index in range(len(paths)):
-                    if not checkForOverlap(possible_path_index, dps_path, row, col, rows, cols, paths, wormholes):
-                        continue
-                    else:
-                        best_choice_index = paths[possible_path_index]
+                best_choice_index = 0
+                
+                # for possible_path_index in range(len(paths)):
+                #     if not checkForOverlap(possible_path_index, dps_path, row, col, rows, cols, paths, wormholes):
+                #         continue
+                #     else:
+                #         best_choice_index = paths[possible_path_index]
                     
                 
                 dp[row][col] = paths[best_choice_index] + (0 if matrix[row][col] == '*' else int(matrix[row][col]))
-                dp_path[row][col] = direction
+                dp_path[row][col] = direction[best_choice_index]
     dps.append(dp)
     dps_path.append(dp_path)
 
-for r in dps[1]:
+
+    
+# do longest snakes first
+import numpy as np
+snakes = sorted(snakes, reverse=True)
+
+free_positions = [[1 for _ in range(cols)] for _ in range(rows)]
+
+for r in dps[-1]:
     print(r)
 
-for l in dps_path[1]:
-    print(l)
-    
-    
+dps = np.array(dps)
+
+
+MIN = np.iinfo(dps.dtype).min
+
+for snake_length in snakes:
+    # we will grow the snake from the optimal square
+    optimal_square = np.argmax(dps[snake_length - 1])
+    head = tail = (optimal_square // cols, optimal_square % cols)
+    dps[:, head[0], head[1]] = MIN + 48 - snake_length
+    for i in range(snake_length-1, 0, -1):
+        # grow the snake
+        growth_choices = {
+            1 : (((head[0] - 1) % rows, head[1]), 1), # head up
+            2 : (((head[0] + 1) % rows, head[1]), 2), # head down
+            3 : ((head[0], (head[1] - 1) % cols), 3), # head left
+            4 : ((head[0], (head[1] + 1) % cols), 4), # head right
+            5 : (((tail[0] - 1) % rows, tail[1]), 5), # tail up
+            6 : (((tail[0] + 1) % rows, tail[1]), 6), # tail down
+            7 : ((tail[0], (tail[1] - 1) % cols), 7), # tail left
+            8 : ((tail[0], (tail[1] + 1) % cols), 8), # tail right
+        }
+        choice = max([(dps[i, c[0], c[1]], growth_index) for c, growth_index in growth_choices.values()], key=lambda x: x[0])
+        if choice[1] <= 4:
+            head = growth_choices[choice[1]][0]
+            dps[:, head[0], head[1]] = MIN + 48 - snake_length
+        else:
+            tail = growth_choices[choice[1]][0]
+            dps[:, tail[0], tail[1]] = MIN + 48 - snake_length
+        
+
+
+# for l in dps_path[2]:
+    # print(l)
+
+np.set_printoptions(linewidth=100000)
+
+for r in dps[-1]:
+    print(r)
